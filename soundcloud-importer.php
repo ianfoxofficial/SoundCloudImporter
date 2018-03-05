@@ -501,9 +501,11 @@ function idv_SCImporter_importFeed($x, $feed) {
 	$posts_array = get_posts( $args ); 
 
 	$post_array_guids = array();
+	$post_array_dates = array();
 	
 	foreach($posts_array as $post) {
 		$post_array_guids[$post->ID] = get_post_meta( $post->ID,'sc_guid' , true );
+		$post_array_dates[$post->ID] = $post->post_modified;
 	}	
 	
 	
@@ -520,6 +522,9 @@ function idv_SCImporter_importFeed($x, $feed) {
 				$post_entry['ID'] = $id;
 				
 				
+				$should_update = idv_SCImporter_compareDateStrings($post_entry['post_date'], $post_array_dates[$id]);
+				
+				
 				
 			}
 			if($should_update) {
@@ -527,6 +532,15 @@ function idv_SCImporter_importFeed($x, $feed) {
 			}
 			//add_settings_error( 'idv_SCImporter_messages', 'idv_SCImporter_message', print_r($post_entry,true), 'updated' );
 	}
+}
+
+function idv_SCImporter_compareDateStrings($a, $b) {
+	
+	$_a = strtotime($a);
+	$_b = strtotime($b);
+	
+	
+	return $_a > $_b;
 }
 
 function idv_SCImporter_makePost($entry, $feed) {
@@ -551,4 +565,18 @@ function idv_SCImporter_makePost($entry, $feed) {
 	
 	return $post_entry;
 		
+}
+
+
+add_filter('the_content', 'idv_SCImporter_content');
+function idv_SCImporter_content($content) {
+	$id = get_the_ID();
+	$url = get_post_meta($id, 'sc_link', true);
+	if($url != false) {
+		
+	
+		//$player = do_shortcode('[soundcloud url="' . $url . '" params="auto_play=false&hide_related=true&show_artwork=true&visual=false" width="100%" height="166" iframe="true" /]');
+		$content = wp_oembed_get($url, array('height' => 160)). '<br />' . $content;
+	}
+	return $content ;
 }
