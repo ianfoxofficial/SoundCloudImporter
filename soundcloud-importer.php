@@ -74,14 +74,15 @@ function idv_SCImporter_options_page() {
 add_action( 'admin_init', 'idv_SCImporter_settings_init' );
 function idv_SCImporter_settings_init() {
 	 // register a new setting for "idv_SCImporter" page
-	 register_setting( 'idv_SCImporter_page', 'idv_SCImporter_options', 'idv_SCImporter_options_save' );
+	 register_setting( 'idv_SCImporter_page_add_new', 'idv_SCImporter_options', 'idv_SCImporter_options_save' );
+	 register_setting( 'idv_SCImporter_page_autoupdate', 'idv_SCImporter_autoupdate', 'idv_SCImporter_autoupdate_save' );
 	 
 	 // register a new section in the "idv_SCImporter" page
 	 add_settings_section(
 		 'idv_SCImporter_section_addNew',
 		 __( 'Feed source', 'idv_SCImporter' ),
 		 'idv_SCImporter_section_addNew_cb',
-		 'idv_SCImporter_page'
+		 'idv_SCImporter_page_add_new'
 	 );
 	 
 	 // register a new field in the "idv_SCImporter_section_addNew" section, inside the "idv_SCImporter" page
@@ -90,7 +91,7 @@ function idv_SCImporter_settings_init() {
 		 // use $args' label_for to populate the id inside the callback
 		 __( 'Feed URL', 'idv_SCImporter' ),
 		 'idv_SCImporter_field_addNew_url_cb',
-		 'idv_SCImporter_page',
+		 'idv_SCImporter_page_add_new',
 		 'idv_SCImporter_section_addNew',
 		 [
 			 'label_for' => 'idv_SCImporter_field_addNew_url',
@@ -104,7 +105,7 @@ function idv_SCImporter_settings_init() {
 		 // use $args' label_for to populate the id inside the callback
 		 __( 'Category', 'idv_SCImporter' ),
 		 'idv_SCImporter_field_addNew_category_cb',
-		 'idv_SCImporter_page',
+		 'idv_SCImporter_page_add_new',
 		 'idv_SCImporter_section_addNew',
 		 [
 			 'label_for' => 'idv_SCImporter_field_addNew_category',
@@ -112,9 +113,41 @@ function idv_SCImporter_settings_init() {
 			 'idv_SCImporter_custom_data' => 'custom',
 		 ]
 	 );
+	  add_settings_field(
+		 'idv_SCImporter_field_addNew_user', // as of WP 4.6 this value is used only internally
+		 // use $args' label_for to populate the id inside the callback
+		 __( 'Posting user', 'idv_SCImporter' ),
+		 'idv_SCImporter_field_addNew_user_cb',
+		 'idv_SCImporter_page_add_new',
+		 'idv_SCImporter_section_addNew',
+		 [
+			 'label_for' => 'idv_SCImporter_field_addNew_user',
+			 'class' => 'idv_SCImporter_row',
+			 'idv_SCImporter_custom_data' => 'custom',
+		 ]
+	 );
 	 
 	
+	 add_settings_section(
+		 'idv_SCImporter_section_autoUpdate',
+		 __( 'AutoUpdate', 'idv_SCImporter' ),
+		 'idv_SCImporter_section_autoUpdate_cb',
+		 'idv_SCImporter_page_autoupdate'
+	 );
 	 
+	 add_settings_field(
+		 'idv_SCImporter_field_autoUpdate_frequency', // as of WP 4.6 this value is used only internally
+		 // use $args' label_for to populate the id inside the callback
+		 __( 'Frequency', 'idv_SCImporter' ),
+		 'idv_SCImporter_field_autoUpdate_frequency_cb',
+		 'idv_SCImporter_page_autoupdate',
+		 'idv_SCImporter_section_autoUpdate',
+		 [
+			 'label_for' => 'idv_SCImporter_field_autoUpdate_frequency',
+			 'class' => 'idv_SCImporter_row',
+			 'idv_SCImporter_custom_data' => 'custom',
+		 ]
+	 );
 	 
 }
 
@@ -134,6 +167,12 @@ function idv_SCImporter_settings_init() {
 function idv_SCImporter_section_addNew_cb( $args ) {
  ?>
  <p id="<?php echo esc_attr( $args['id'] ); ?>"><?php esc_html_e( 'This is the feed you want to import.', 'idv_SCImporter' ); ?></p>
+ <?php
+}
+ 
+function idv_SCImporter_section_autoUpdate_cb( $args ) {
+ ?>
+ <p id="<?php echo esc_attr( $args['id'] ); ?>"><?php esc_html_e( 'The auto update frequency (This applies for all feeds)', 'idv_SCImporter' ); ?></p>
  <?php
 }
  
@@ -166,7 +205,10 @@ function idv_SCImporter_field_addNew_category_cb( $args ) {
  $options = get_option( 'idv_SCImporter_options' );
  // output the field
 
- $categories = get_categories();
+ $categories = get_terms( array(
+	'taxonomy' => 'category',
+    'hide_empty' => false,
+) );
  //print_r($categories);
  ?>
  
@@ -195,6 +237,70 @@ function idv_SCImporter_field_addNew_category_cb( $args ) {
  <?php
 }
 
+function idv_SCImporter_field_addNew_user_cb( $args ) {
+ // get the value of the setting we've registered with register_setting()
+ $options = get_option( 'idv_SCImporter_options' );
+ // output the field
+
+ $users = get_users();
+//print_r($users);
+ ?>
+ 
+ 
+ <?php $value = isset( $options[ $args['label_for'] ] ) ?  $options[ $args['label_for'] ] : ""; ?>
+ 
+
+ <select id="<?php echo esc_attr( $args['label_for'] ); ?>" name="idv_SCImporter_options[<?php echo esc_attr( $args['label_for'] ); ?>]" data-custom="<?php echo esc_attr( $args['idv_SCImporter_custom_data'] ); ?>">
+	<option></option>
+	<?php 
+		foreach($users as &$user) {
+			?>
+				
+				<option value="<?php echo $user->ID; ?>" <?php echo $value == $user->ID ? 'selected' : ''; ?>><?php echo $user->display_name; ?></option>
+			<?php
+		}
+	?>
+ 
+ </select>
+ 
+
+ <p class="description">
+ <?php esc_html_e( 'The user under which the feed gets posted.', 'idv_SCImporter' ); ?>
+ </p>
+ 
+ <?php
+}
+
+function idv_SCImporter_field_autoUpdate_frequency_cb( $args ) {
+ // get the value of the setting we've registered with register_setting()
+ $options = get_option( 'idv_SCImporter_autoupdate' );
+ // output the field
+
+ 
+ //print_r($categories);
+ ?>
+ 
+ 
+ <?php $value = isset( $options[ $args['label_for'] ] ) ?  $options[ $args['label_for'] ] : ""; ?>
+ 
+
+ <select id="<?php echo esc_attr( $args['label_for'] ); ?>" name="idv_SCImporter_autoupdate[<?php echo esc_attr( $args['label_for'] ); ?>]" data-custom="<?php echo esc_attr( $args['idv_SCImporter_custom_data'] ); ?>">
+	<option value="hourly" <?php if($value == 'hourly') { echo "selected"; } ?>><?php _e( 'Every hour', 'idv_SCImporter' ); ?></option>
+	<option value="twicedaily"<?php if($value == 'twicedaily') { echo "selected"; } ?>><?php _e( 'Twice a day', 'idv_SCImporter' ); ?></option>
+	<option value="daily" <?php if($value == 'daily') { echo "selected"; } ?>><?php _e( 'Once a day', 'idv_SCImporter' ); ?></option>
+	
+	
+ 
+ </select>
+ 
+
+ <p class="description">
+ <?php esc_html_e( 'The frequency of auto-updating the Soundcloud RSS feed to your website.', 'idv_SCImporter' ); ?>
+ </p>
+ 
+ <?php
+}
+
  
 /**
  * top level menu:
@@ -202,6 +308,16 @@ function idv_SCImporter_field_addNew_category_cb( $args ) {
  */
 function idv_SCImporter_options_page_html() {
 	// check user capabilities
+	$next_cron = wp_next_scheduled( 'idv_SCImporter_autoupdate_cron_hook' );
+	
+	if($next_cron != false) {
+		$next_cron = date_i18n( 'D, d M Y H:i:s T', $next_cron); 
+	} else {
+		$next_cron = __('Not scheduled yet...','idv_SCImporter');
+	}
+	
+	
+	
 	if ( ! current_user_can( 'manage_options' ) ) {
 		return;
 	}
@@ -221,22 +337,49 @@ function idv_SCImporter_options_page_html() {
 	 
 	// show error/update messages
 	settings_errors( 'idv_SCImporter_messages' );
+	
+	
+	
 	?>
 	<div class="wrap">
 		<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
+		
+		<p>
+		<strong><?php _e('Next auto update: ', 'idv_SCImporter'); ?></strong> : <?php echo $next_cron; ?>
+	
+	
+		</p>
+		
 		<form action="options.php" method="post">
 		<?php
 			// output security fields for the registered setting "idv_SCImporter"
-			settings_fields( 'idv_SCImporter_page' );
+			settings_fields( 'idv_SCImporter_page_add_new' );
 			// output setting sections and their fields
 			// (sections are registered for "idv_SCImporter", each field is registered to a specific section)
-			do_settings_sections( 'idv_SCImporter_page' );
+			do_settings_sections( 'idv_SCImporter_page_add_new' );
 			
 			
 			
 			// output save settings button
 			submit_button( 'Add new feed' );
 		 ?>
+	
+		</form>
+		
+		<form action="options.php" method="post">
+		<?php
+			// output security fields for the registered setting "idv_SCImporter"
+			settings_fields( 'idv_SCImporter_page_autoupdate' );
+			// output setting sections and their fields
+			// (sections are registered for "idv_SCImporter", each field is registered to a specific section)
+			do_settings_sections( 'idv_SCImporter_page_autoupdate' );
+			
+			
+			
+			// output save settings button
+			submit_button( 'Update frequency' );
+		 ?>
+	
 		</form>
 		
 		<div>
@@ -244,7 +387,7 @@ function idv_SCImporter_options_page_html() {
 		
 		<form action="options.php" method="post">
 		<?php
-			settings_fields( 'idv_SCImporter_page' );
+			settings_fields( 'idv_SCImporter_page_add_new' );
 			$options = get_option( 'idv_SCImporter_options' );
 			
 			$urls = isset($options['idv_SCImporter_fields']) ? $options['idv_SCImporter_fields'] : array();
@@ -254,13 +397,18 @@ function idv_SCImporter_options_page_html() {
 			
 			<table class="widefat fixed" cellspacing="0">
 				<thead>
+					<th><?php esc_html_e( 'Update Now', 'idv_SCImporter' ); ?></th>
+					
+				
 					<th><?php esc_html_e( 'Feed', 'idv_SCImporter' ); ?> </th>
 					<th><?php esc_html_e( 'RSS', 'idv_SCImporter' ); ?></th>
 					<th><?php esc_html_e( 'Category', 'idv_SCImporter' ); ?></th>
 					<th><?php esc_html_e( 'Last Update (RSS)', 'idv_SCImporter' ); ?></th>
 					<th><?php esc_html_e( 'Last fetched', 'idv_SCImporter' ); ?></th>
 					<th><?php esc_html_e( 'Links', 'idv_SCImporter' ); ?></th>
-					<th><?php esc_html_e( 'Update', 'idv_SCImporter' ); ?></th>
+					<th><?php esc_html_e( 'Auto Update', 'idv_SCImporter' ); ?></th>
+					<th><?php esc_html_e( 'User', 'idv_SCImporter' ); ?></th>
+					
 					<th></th>
 				</thead>
 				<tbody>
@@ -275,17 +423,23 @@ function idv_SCImporter_options_page_html() {
 				
 				$lastBuildDate = $feed['lastBuildDate'];
 				$lastFetchDate = $feed['lastFetchDate'];
+				$user = get_userdata( $feed['user'] ); 
 				
 				
 				?>
 				<tr>
+					<td><input type="checkbox" value="update" name="idv_SCImporter_options[idv_SCImporter_fields][<?php echo $c; ?>][update]"  /> Update feed
+				
 					<td><a href="<?php echo $feed['link']; ?>" target="_blank"><?php echo $feed['title']; ?></a>
 					<td><a href="<?php echo $feed['url']; ?>"  target="_blank">RSS</a></td>
 					<td><?php echo $cat; ?></td>
 					<td><?php echo $lastBuildDate; ?></td>
 					<td><?php echo $lastFetchDate; ?></td>
 					<td><?php echo $feed['links']; ?></td>
-					<td><input type="checkbox" value="update" name="idv_SCImporter_options[idv_SCImporter_fields][<?php echo $c; ?>][update]"  /> Update feed
+					
+					
+					<td><input type="checkbox" value="true" <?php if($feed['auto_update'] == 'true') {echo 'checked="checked"'; } ?> name="idv_SCImporter_options[idv_SCImporter_fields][<?php echo $c; ?>][auto_update]" />
+					<td><?php echo $user->display_name; ?></td>
 					<td>
 						<button class="delete_button">Delete</button>
 						<input type="hidden" value="<?php echo $feed['link']; ?>" name="idv_SCImporter_options[idv_SCImporter_fields][<?php echo $c; ?>][link]" />
@@ -295,7 +449,7 @@ function idv_SCImporter_options_page_html() {
 						
 						<input type="hidden" value="<?php echo $feed['lastBuildDate']; ?>" name="idv_SCImporter_options[idv_SCImporter_fields][<?php echo $c; ?>][lastBuildDate]" />
 						<input type="hidden" value="<?php echo $feed['lastFetchDate']; ?>" name="idv_SCImporter_options[idv_SCImporter_fields][<?php echo $c; ?>][lastFetchDate]" />
-						
+						<input type="hidden" value="<?php echo $feed['user']; ?>" name="idv_SCImporter_options[idv_SCImporter_fields][<?php echo $c; ?>][user]" />
 						<input type="hidden" value="<?php echo $feed['links']; ?>" name="idv_SCImporter_options[idv_SCImporter_fields][<?php echo $c; ?>][links]" />
 						<input type="hidden" value="<?php echo $feed['category']; ?>" name="idv_SCImporter_options[idv_SCImporter_fields][<?php echo $c; ?>][category]" />
 						
@@ -340,7 +494,31 @@ function idv_SCImporter_options_save($input) {
 	return $input;
 	
 }
-
+function idv_SCImporter_autoupdate_save($input) {
+	$frequency = $input['idv_SCImporter_field_autoUpdate_frequency'];
+	
+	switch($frequency) {
+		case 'hourly':
+		case 'twicedaily':
+		case 'daily':
+			break;
+		default: 
+		$frequency = "daily";
+		
+	}
+	
+	$event_timestamp = wp_next_scheduled('idv_SCImporter_autoupdate_cron_hook');
+	if ( $event_timestamp ) {
+		
+	
+		wp_unschedule_event($event_timestamp, 'idv_SCImporter_autoupdate_cron_hook');
+	}
+	
+	wp_schedule_event( time(), $frequency, 'idv_SCImporter_autoupdate_cron_hook' );
+	
+	add_settings_error( 'idv_SCImporter_messages', 'idv_SCImporter_message', __( 'Auto update schedule is now changed.', 'idv_SCImporter' ), 'updated' );
+	return $input;
+}
 
 function idv_SCImporter_enterNewUrl($input) {
 	$options = get_option( 'idv_SCImporter_options' );	
@@ -361,6 +539,7 @@ function idv_SCImporter_enterNewUrl($input) {
 					$new_entry = array();
 					$new_entry['url'] = $input['idv_SCImporter_field_addNew_url'];
 					$new_entry['category'] = $input['idv_SCImporter_field_addNew_category'];
+					$new_entry['user'] = $input['idv_SCImporter_field_addNew_user'];
 					$new_entry = idv_SCImporter_updateFeed($new_entry);
 					if($new_entry == false) {
 						
@@ -371,15 +550,15 @@ function idv_SCImporter_enterNewUrl($input) {
 						
 					
 					}
-					} else {
+				} else {
 						
-						add_settings_error( 'idv_SCImporter_messages', 'idv_SCImporter_message', __( 'This feed is already added', 'idv_SCImporter' ), 'error' );
+					add_settings_error( 'idv_SCImporter_messages', 'idv_SCImporter_message', __( 'This feed is already added', 'idv_SCImporter' ), 'error' );
 				}
 			} else {
 				add_settings_error( 'idv_SCImporter_messages', 'idv_SCImporter_message', __( 'You need to choose a category', 'idv_SCImporter' ), 'error' );
 			}
 		} else {
-			add_settings_error( 'idv_SCImporter_messages', 'idv_SCImporter_message', __( 'You need to enter an url', 'idv_SCImporter' ), 'error' );
+			//add_settings_error( 'idv_SCImporter_messages', 'idv_SCImporter_message', __( 'You need to enter an url', 'idv_SCImporter' ), 'error' );
 			
 		}
 		$input = idv_SCImporter_emptyAddNew($input);
@@ -403,6 +582,8 @@ function idv_SCImporter_updateFeedList($input) {
 			
 			
 		foreach($input['idv_SCImporter_fields'] as &$feed) {
+			
+			
 			if(isset($feed['update']) && $feed['update'] == 'update') {
 				
 				$feed = idv_SCImporter_updateFeed($feed);
@@ -568,6 +749,26 @@ function idv_SCImporter_makePost($entry, $feed) {
 }
 
 
+function idv_SCImporter_updateJob() {
+	$options = get_option( 'idv_SCImporter_options' );
+			
+	$urls = isset($options['idv_SCImporter_fields']) ? $options['idv_SCImporter_fields'] : array();
+	
+	foreach($urls as &$feed) {
+		if($feed['auto_update'] == 'true') {
+			$feed = idv_SCImporter_updateFeed($feed);
+		}
+		
+	}
+	$options['idv_SCImporter_fields'] = $urls;
+	update_option('idv_SCImporter_options', $options);
+}
+
+add_action('idv_SCImporter_autoupdate_cron_hook', 'idv_SCImporter_updateJob');
+
+
+
+add_filter( 'get_the_excerpt', 'idv_SCImporter_content' );
 add_filter('the_content', 'idv_SCImporter_content');
 function idv_SCImporter_content($content) {
 	$id = get_the_ID();
@@ -580,3 +781,4 @@ function idv_SCImporter_content($content) {
 	}
 	return $content ;
 }
+
